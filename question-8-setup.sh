@@ -8,9 +8,9 @@ if ! command -v kubectl >/dev/null 2>&1; then
   exit 0
 fi
 
-kubectl get ns netpol >/dev/null 2>&1 || kubectl create ns netpol
+kubectl get ns netpol-q8 >/dev/null 2>&1 || kubectl create ns netpol-q8
 
-kubectl -n netpol apply -f - <<'YAML'
+kubectl -n netpol-q8 apply -f - <<'YAML'
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -46,4 +46,16 @@ spec:
   ports:
   - port: 8080
     targetPort: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-client
+  labels:
+    app: test-client
+spec:
+  containers:
+  - name: client
+    image: busybox:1.36
+    command: ["sh", "-c", "sleep 36000"]
 YAML

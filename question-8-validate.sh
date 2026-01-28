@@ -22,11 +22,13 @@ check() {
 
 require_cmd kubectl
 
-check "netpol namespace exists" "kubectl get ns netpol >/dev/null 2>&1"
+check "netpol-q8 namespace exists" "kubectl get ns netpol-q8 >/dev/null 2>&1"
+
+check "test-client pod exists" "kubectl -n netpol-q8 get pod test-client >/dev/null 2>&1"
 
 check "networkpolicies enforce requirements" "python3 - <<'PY'
 import json, subprocess, sys
-raw = subprocess.check_output(['kubectl','-n','netpol','get','netpol','-o','json'])
+raw = subprocess.check_output(['kubectl','-n','netpol-q8','get','netpol','-o','json'])
 obj = json.loads(raw)
 items = obj.get('items', [])
 

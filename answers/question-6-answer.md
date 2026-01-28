@@ -1,16 +1,17 @@
 # Question 6 Answer
 
 ## validation
-- A ValidatingAdmissionPolicy exists that rejects images without `@sha256:`.
-- Policy is bound to namespace `secure`.
+- A ValidatingAdmissionPolicy named `require-image-digest-secure` rejects images without `@sha256:`.
+- Policy is bound **only** to namespace `secure` via namespace selector.
 - `cosign verify` was run successfully against the specified image.
 - Deployment in `secure` uses a digest-pinned image and label `cosign-verified=true`.
 
 ## solution
-1) Create a ValidatingAdmissionPolicy with CEL expression:
+1) Create a ValidatingAdmissionPolicy named `require-image-digest-secure` with CEL expression:
    - Require all container images to contain `@sha256:`.
 
-2) Bind the policy to namespace `secure` using a ValidatingAdmissionPolicyBinding.
+2) Bind the policy with `require-image-digest-secure-binding` using a namespace selector.
+   - Example selector label: `cks-lab=question-6` on the `secure` namespace.
 
 3) Verify the image signature:
    - `cosign verify registry.local/secure-app@sha256:...`

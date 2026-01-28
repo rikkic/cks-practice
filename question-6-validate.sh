@@ -28,37 +28,32 @@ raw = subprocess.check_output(['kubectl','get','validatingadmissionpolicy','-o',
 obj = json.loads(raw)
 items = obj.get('items', [])
 for pol in items:
+    if pol.get('metadata', {}).get('name') != 'require-image-digest-secure':
+        continue
     vals = pol.get('spec', {}).get('validations', [])
     for v in vals:
         expr = v.get('expression', '')
         if '@sha256:' in expr:
-            print(pol['metadata']['name'])
             sys.exit(0)
 sys.exit(1)
 PY"
 
-check "policy bound to namespace secure" "python3 - <<'PY'
+check "secure namespace labeled for binding" "kubectl get ns secure -o jsonpath='{.metadata.labels.cks-lab}' | grep -q question-6"
+
+check "policy bound only to namespace secure via selector" "python3 - <<'PY'
 import json, subprocess, sys
-pols = json.loads(subprocess.check_output(['kubectl','get','validatingadmissionpolicy','-o','json']))
-pol_names = []
-for pol in pols.get('items', []):
-    for v in pol.get('spec', {}).get('validations', []):
-        if '@sha256:' in v.get('expression',''):
-            pol_names.append(pol['metadata']['name'])
-
-if not pol_names:
-    sys.exit(1)
-
 bindings = json.loads(subprocess.check_output(['kubectl','get','validatingadmissionpolicybinding','-o','json']))
 for b in bindings.get('items', []):
-    if b.get('spec', {}).get('policyName') not in pol_names:
+    if b.get('metadata', {}).get('name') != 'require-image-digest-secure-binding':
+        continue
+    if b.get('spec', {}).get('policyName') != 'require-image-digest-secure':
         continue
     ns_sel = b.get('spec', {}).get('matchResources', {}).get('namespaceSelector', {})
     ml = ns_sel.get('matchLabels', {})
-    if ml.get('kubernetes.io/metadata.name') == 'secure':
+    if ml.get('cks-lab') == 'question-6':
         sys.exit(0)
     for expr in ns_sel.get('matchExpressions', []):
-        if expr.get('key') == 'kubernetes.io/metadata.name' and 'secure' in expr.get('values', []):
+        if expr.get('key') == 'cks-lab' and 'question-6' in expr.get('values', []):
             sys.exit(0)
 
 sys.exit(1)

@@ -1,10 +1,10 @@
 # Question 9: Suspicious egress investigation
 
 ## Scenario
-Security monitoring reports pods in `finance` reaching `198.51.100.20`. You must investigate, document the suspected actor, and block the traffic.
+Security monitoring reports pods in the dedicated `finance-q9` namespace reaching `198.51.100.20`. You must investigate, document the suspected actor, and block the traffic. A `test-client` pod exists for connectivity checks.
 
 ## Tasks
-- Identify the pod(s) in `finance` initiating outbound connections to `198.51.100.20`.
+- Identify the pod(s) in `finance-q9` initiating outbound connections to `198.51.100.20`.
 - Review the API audit log to identify the user who most recently modified those pods.
 - Block outbound traffic to external IPs except DNS and internal services.
 
@@ -14,4 +14,4 @@ Security monitoring reports pods in `finance` reaching `198.51.100.20`. You must
 
 ## Deliverables
 - Summary of the suspected actor saved to `/home/ubuntu/answers/q9-audit.txt`.
-- NetworkPolicy in `finance` restricting egress as required.
+- NetworkPolicy in `finance-q9` restricting egress as required.

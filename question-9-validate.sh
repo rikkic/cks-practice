@@ -22,11 +22,13 @@ check() {
 
 require_cmd kubectl
 
-check "audit summary saved" "test -s /home/student/answers/q9-audit.txt"
+check "audit summary saved" "test -s /home/ubuntu/answers/q9-audit.txt"
 
-check "egress restricted in finance" "python3 - <<'PY'
+check "test-client pod exists" "kubectl -n finance-q9 get pod test-client >/dev/null 2>&1"
+
+check "egress restricted in finance-q9" "python3 - <<'PY'
 import json, subprocess, sys
-raw = subprocess.check_output(['kubectl','-n','finance','get','netpol','-o','json'])
+raw = subprocess.check_output(['kubectl','-n','finance-q9','get','netpol','-o','json'])
 obj = json.loads(raw)
 items = obj.get('items', [])
 if not items:

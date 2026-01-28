@@ -5,6 +5,7 @@ set -euo pipefail
 
 if command -v kubectl >/dev/null 2>&1; then
   kubectl get ns secure >/dev/null 2>&1 || kubectl create ns secure
+  kubectl label ns secure cks-lab=question-6 --overwrite
 fi
 
 # Create cosign keys if cosign is available and keys are missing.

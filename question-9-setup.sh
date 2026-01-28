@@ -8,9 +8,9 @@ if ! command -v kubectl >/dev/null 2>&1; then
   exit 0
 fi
 
-kubectl get ns finance >/dev/null 2>&1 || kubectl create ns finance
+kubectl get ns finance-q9 >/dev/null 2>&1 || kubectl create ns finance-q9
 
-kubectl -n finance apply -f - <<'YAML'
+kubectl -n finance-q9 apply -f - <<'YAML'
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,12 +31,24 @@ spec:
       - name: app
         image: busybox:1.36
         command: ["sh", "-c", "while true; do wget -qO- http://198.51.100.20 || true; sleep 20; done"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-client
+  labels:
+    app: test-client
+spec:
+  containers:
+  - name: client
+    image: busybox:1.36
+    command: ["sh", "-c", "sleep 36000"]
 YAML
 
 # Append a synthetic audit log entry for investigation.
 if [[ -d /var/log/kubernetes ]]; then
   sudo touch /var/log/kubernetes/audit.log
   sudo bash -c 'cat <<EOF >> /var/log/kubernetes/audit.log
-{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"RequestResponse","stage":"ResponseComplete","verb":"patch","user":{"username":"evil-user"},"objectRef":{"resource":"deployments","namespace":"finance","name":"fin-app"},"requestReceivedTimestamp":"2026-01-28T12:34:56Z","stageTimestamp":"2026-01-28T12:34:56Z"}
+{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"RequestResponse","stage":"ResponseComplete","verb":"patch","user":{"username":"evil-user"},"objectRef":{"resource":"deployments","namespace":"finance-q9","name":"fin-app"},"requestReceivedTimestamp":"2026-01-28T12:34:56Z","stageTimestamp":"2026-01-28T12:34:56Z"}
 EOF'
 fi
