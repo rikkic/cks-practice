@@ -1,0 +1,121 @@
+---
+- name: Question 1 setup
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Ensure answers directory exists
+      ansible.builtin.file:
+        path: /home/ubuntu/answers
+        state: directory
+        mode: '0755'
+
+    - name: Check kubectl present
+      ansible.builtin.command: which kubectl
+      register: kubectl_check
+      changed_when: false
+      failed_when: false
+
+    - name: Apply auditor service account
+      ansible.builtin.command: kubectl apply -f "{{ playbook_dir }}/supporting/question-1/auditor-sa.yaml"
+      when: kubectl_check.rc == 0
+
+    - name: Read kubeconfig as JSON
+      ansible.builtin.command: kubectl config view --raw -o json
+      register: kubeconfig_raw
+      changed_when: false
+      when: kubectl_check.rc == 0
+
+    - name: Set kubeconfig facts
+      ansible.builtin.set_fact:
+        kubeconfig_json: "{{ kubeconfig_raw.stdout | from_json }}"
+      when: kubectl_check.rc == 0
+
+    - name: Set cluster facts
+      ansible.builtin.set_fact:
+        current_context: "{{ kubeconfig_json['current-context'] }}"
+        cluster_name: "{{ (kubeconfig_json['contexts'] | selectattr('name','equalto', kubeconfig_json['current-context']) | list | first).context.cluster }}"
+      when: kubectl_check.rc == 0
+
+    - name: Set server and CA data
+      ansible.builtin.set_fact:
+        server: "{{ (kubeconfig_json['clusters'] | selectattr('name','equalto', cluster_name) | list | first).cluster.server }}"
+        ca_data: "{{ (kubeconfig_json['clusters'] | selectattr('name','equalto', cluster_name) | list | first).cluster['certificate-authority-data'] }}"
+      when: kubectl_check.rc == 0
+
+    - name: Create auditor token
+      ansible.builtin.command: kubectl -n default create token auditor
+      register: auditor_token
+      changed_when: false
+      when: kubectl_check.rc == 0
+
+    - name: Write auditor kubeconfig
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/supporting/question-1/auditor.kubeconfig.j2"
+        dest: /home/ubuntu/auditor.kubeconfig
+        mode: '0600'
+      vars:
+        token: "{{ auditor_token.stdout }}"
+      when: kubectl_check.rc == 0
+
+    - name: Check API server manifest
+      ansible.builtin.stat:
+        path: /etc/kubernetes/manifests/kube-apiserver.yaml
+      register: apiserver_manifest
+
+    - name: Backup API server manifest
+      ansible.builtin.copy:
+        src: /etc/kubernetes/manifests/kube-apiserver.yaml
+        dest: /etc/kubernetes/manifests/kube-apiserver.yaml.bak
+        remote_src: true
+      become: true
+      when: apiserver_manifest.stat.exists
+
+    - name: Read API server manifest contents
+      ansible.builtin.slurp:
+        path: /etc/kubernetes/manifests/kube-apiserver.yaml
+      register: apiserver_manifest_contents
+      become: true
+      when: apiserver_manifest.stat.exists
+
+    - name: Derive list indentation for command entries
+      ansible.builtin.set_fact:
+        apiserver_indent: >-
+          {{ (apiserver_manifest_contents.content | b64decode
+              | regex_search('(?m)^(\\s*)-\\s*kube-apiserver\\s*$', '\\\\1'))
+              | default('    ') }}
+      when: apiserver_manifest.stat.exists
+
+    - name: Remove TLS hardening flags (lab baseline)
+      ansible.builtin.lineinfile:
+        path: /etc/kubernetes/manifests/kube-apiserver.yaml
+        regexp: '^\\s*- --tls-min-version='
+        state: absent
+      become: true
+      when: apiserver_manifest.stat.exists
+
+    - name: Remove TLS cipher suites flag (lab baseline)
+      ansible.builtin.lineinfile:
+        path: /etc/kubernetes/manifests/kube-apiserver.yaml
+        regexp: '^\\s*- --tls-cipher-suites='
+        state: absent
+      become: true
+      when: apiserver_manifest.stat.exists
+
+    - name: Ensure anonymous auth enabled (lab baseline)
+      ansible.builtin.lineinfile:
+        path: /etc/kubernetes/manifests/kube-apiserver.yaml
+        regexp: '^\\s*- --anonymous-auth='
+        line: "{{ apiserver_indent }}- --anonymous-auth=true"
+        insertafter: '^\\s*-\\s*kube-apiserver\\s*$'
+      become: true
+      when: apiserver_manifest.stat.exists
+
+    - name: Ensure authorization mode AlwaysAllow (lab baseline)
+      ansible.builtin.lineinfile:
+        path: /etc/kubernetes/manifests/kube-apiserver.yaml
+        regexp: '^\\s*- --authorization-mode='
+        line: "{{ apiserver_indent }}- --authorization-mode=AlwaysAllow"
+        insertafter: '^\\s*-\\s*kube-apiserver\\s*$'
+      become: true
+      when: apiserver_manifest.stat.exists

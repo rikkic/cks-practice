@@ -1,0 +1,62 @@
+---
+- name: Question 2 setup
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Check kubeadm flags file
+      ansible.builtin.stat:
+        path: /var/lib/kubelet/kubeadm-flags.env
+      register: kubeadm_flags
+
+    - name: Backup kubeadm flags
+      ansible.builtin.copy:
+        src: /var/lib/kubelet/kubeadm-flags.env
+        dest: /var/lib/kubelet/kubeadm-flags.env.bak
+        remote_src: true
+      become: true
+      when: kubeadm_flags.stat.exists
+
+    - name: Read kubeadm flags
+      ansible.builtin.slurp:
+        path: /var/lib/kubelet/kubeadm-flags.env
+      register: kubeadm_flags_raw
+      become: true
+      when: kubeadm_flags.stat.exists
+
+    - name: Extract kubelet args
+      ansible.builtin.set_fact:
+        kubelet_args: >-
+          {{ (kubeadm_flags_raw.content | b64decode)
+             | regex_search('KUBELET_KUBEADM_ARGS="(.*)"', '\\1')
+             | default('') }}
+      when: kubeadm_flags.stat.exists
+
+    - name: Build weakened kubelet args
+      ansible.builtin.set_fact:
+        kubelet_args_new: >-
+          {{ kubelet_args
+             ~ (' --read-only-port=10255' if '--read-only-port=10255' not in kubelet_args else '')
+             ~ (' --anonymous-auth=true' if '--anonymous-auth=true' not in kubelet_args else '')
+             ~ (' --authorization-mode=AlwaysAllow' if '--authorization-mode=AlwaysAllow' not in kubelet_args else '')
+             ~ (' --authentication-token-webhook=false' if '--authentication-token-webhook=false' not in kubelet_args else '')
+          }}
+      when: kubeadm_flags.stat.exists
+
+    - name: Update kubeadm flags line
+      ansible.builtin.lineinfile:
+        path: /var/lib/kubelet/kubeadm-flags.env
+        regexp: '^KUBELET_KUBEADM_ARGS='
+        line: "KUBELET_KUBEADM_ARGS=\"{{ kubelet_args_new | trim }}\""
+      become: true
+      when: kubeadm_flags.stat.exists
+
+    - name: Loosen /etc/kubernetes permissions
+      ansible.builtin.command: chmod -R 777 /etc/kubernetes
+      become: true
+      when: kubeadm_flags.stat.exists
+
+    - name: Restart kubelet
+      ansible.builtin.command: systemctl restart kubelet
+      become: true
+      failed_when: false

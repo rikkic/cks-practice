@@ -1,0 +1,39 @@
+---
+- name: Question 6 setup
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Check kubectl present
+      ansible.builtin.command: which kubectl
+      register: kubectl_check
+      changed_when: false
+      failed_when: false
+
+    - name: Ensure secure namespace exists
+      ansible.builtin.command: kubectl get ns secure
+      register: secure_ns
+      changed_when: false
+      failed_when: false
+      when: kubectl_check.rc == 0
+
+    - name: Create secure namespace
+      ansible.builtin.command: kubectl create ns secure
+      when: kubectl_check.rc == 0 and secure_ns.rc != 0
+
+    - name: Label secure namespace for binding
+      ansible.builtin.command: kubectl label ns secure cks-lab=question-6 --overwrite
+      when: kubectl_check.rc == 0
+
+    - name: Check cosign present
+      ansible.builtin.command: which cosign
+      register: cosign_check
+      changed_when: false
+      failed_when: false
+
+    - name: Generate cosign keys
+      ansible.builtin.command: cosign generate-key-pair
+      args:
+        chdir: /home/ubuntu
+        creates: /home/ubuntu/cosign.key
+      when: cosign_check.rc == 0

@@ -1,0 +1,24 @@
+---
+- name: Question 7 setup
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Ensure app and answers directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - /home/ubuntu/q7/app
+        - /home/ubuntu/answers
+
+    - name: Copy app files
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/supporting/question-7/{{ item }}"
+        dest: "/home/ubuntu/q7/app/{{ item }}"
+        mode: '0644'
+      loop:
+        - go.mod
+        - main.go
+        - Dockerfile

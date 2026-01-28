@@ -1,0 +1,34 @@
+---
+- name: Question 9 setup
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Check kubectl present
+      ansible.builtin.command: which kubectl
+      register: kubectl_check
+      changed_when: false
+      failed_when: false
+
+    - name: Ensure finance-q9 namespace exists
+      ansible.builtin.command: kubectl get ns finance-q9
+      register: finance_ns
+      changed_when: false
+      failed_when: false
+      when: kubectl_check.rc == 0
+
+    - name: Create finance-q9 namespace
+      ansible.builtin.command: kubectl create ns finance-q9
+      when: kubectl_check.rc == 0 and finance_ns.rc != 0
+
+    - name: Apply finance-q9 workloads
+      ansible.builtin.command: kubectl -n finance-q9 apply -f "{{ playbook_dir }}/supporting/question-9/finance-q9.yaml"
+      when: kubectl_check.rc == 0
+
+    - name: Append synthetic audit log entry
+      ansible.builtin.lineinfile:
+        path: /var/log/kubernetes/audit.log
+        line: '{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"RequestResponse","stage":"ResponseComplete","verb":"patch","user":{"username":"evil-user"},"objectRef":{"resource":"deployments","namespace":"finance-q9","name":"fin-app"},"requestReceivedTimestamp":"2026-01-28T12:34:56Z","stageTimestamp":"2026-01-28T12:34:56Z"}'
+        create: true
+        insertafter: EOF
+      become: true

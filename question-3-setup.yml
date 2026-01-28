@@ -1,0 +1,15 @@
+---
+- name: Question 3 setup
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Check kubectl present
+      ansible.builtin.command: which kubectl
+      register: kubectl_check
+      changed_when: false
+      failed_when: false
+
+    - name: Apply namespace and service account
+      ansible.builtin.command: kubectl apply -f "{{ playbook_dir }}/supporting/question-3/dev-namespace-sa.yaml"
+      when: kubectl_check.rc == 0

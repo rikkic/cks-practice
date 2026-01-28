@@ -1,0 +1,26 @@
+---
+- name: Question 8 setup
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Check kubectl present
+      ansible.builtin.command: which kubectl
+      register: kubectl_check
+      changed_when: false
+      failed_when: false
+
+    - name: Ensure netpol-q8 namespace exists
+      ansible.builtin.command: kubectl get ns netpol-q8
+      register: netpol_ns
+      changed_when: false
+      failed_when: false
+      when: kubectl_check.rc == 0
+
+    - name: Create netpol-q8 namespace
+      ansible.builtin.command: kubectl create ns netpol-q8
+      when: kubectl_check.rc == 0 and netpol_ns.rc != 0
+
+    - name: Apply netpol-q8 workloads
+      ansible.builtin.command: kubectl -n netpol-q8 apply -f "{{ playbook_dir }}/supporting/question-8/netpol-q8.yaml"
+      when: kubectl_check.rc == 0

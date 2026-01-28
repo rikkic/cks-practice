@@ -1,0 +1,34 @@
+---
+- name: Question 4 setup
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Check kubectl present
+      ansible.builtin.command: which kubectl
+      register: kubectl_check
+      changed_when: false
+      failed_when: false
+
+    - name: Ensure payments namespace exists
+      ansible.builtin.command: kubectl get ns payments
+      register: payments_ns
+      changed_when: false
+      failed_when: false
+      when: kubectl_check.rc == 0
+
+    - name: Create payments namespace
+      ansible.builtin.command: kubectl create ns payments
+      when: kubectl_check.rc == 0 and payments_ns.rc != 0
+
+    - name: Apply payments deployment
+      ansible.builtin.command: kubectl -n payments apply -f "{{ playbook_dir }}/supporting/question-4/payments-deploy.yaml"
+      when: kubectl_check.rc == 0
+
+    - name: Enforce restricted PSS in payments
+      ansible.builtin.command: kubectl label ns payments pod-security.kubernetes.io/enforce=restricted --overwrite
+      when: kubectl_check.rc == 0
+
+    - name: Delete existing payments pods
+      ansible.builtin.command: kubectl -n payments delete pod -l app=payments --ignore-not-found
+      when: kubectl_check.rc == 0
