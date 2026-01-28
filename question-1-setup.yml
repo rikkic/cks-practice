@@ -18,6 +18,8 @@
 
     - name: Apply auditor service account
       ansible.builtin.command: kubectl apply -f "{{ playbook_dir }}/supporting/question-1/auditor-sa.yaml"
+      register: auditor_sa_apply
+      changed_when: "'unchanged' not in auditor_sa_apply.stdout"
       when: kubectl_check.rc == 0
 
     - name: Read kubeconfig as JSON
@@ -43,11 +45,17 @@
         ca_data: "{{ (kubeconfig_json['clusters'] | selectattr('name','equalto', cluster_name) | list | first).cluster['certificate-authority-data'] }}"
       when: kubectl_check.rc == 0
 
+    - name: Check for existing auditor kubeconfig
+      ansible.builtin.stat:
+        path: /home/ubuntu/auditor.kubeconfig
+      register: auditor_kubeconfig
+      when: kubectl_check.rc == 0
+
     - name: Create auditor token
       ansible.builtin.command: kubectl -n default create token auditor
       register: auditor_token
       changed_when: false
-      when: kubectl_check.rc == 0
+      when: kubectl_check.rc == 0 and not auditor_kubeconfig.stat.exists
 
     - name: Write auditor kubeconfig
       ansible.builtin.template:
@@ -56,7 +64,7 @@
         mode: '0600'
       vars:
         token: "{{ auditor_token.stdout }}"
-      when: kubectl_check.rc == 0
+      when: kubectl_check.rc == 0 and not auditor_kubeconfig.stat.exists
 
     - name: Check API server manifest
       ansible.builtin.stat:
@@ -68,6 +76,7 @@
         src: /etc/kubernetes/manifests/kube-apiserver.yaml
         dest: /etc/kubernetes/manifests/kube-apiserver.yaml.bak
         remote_src: true
+        force: false
       become: true
       when: apiserver_manifest.stat.exists
 

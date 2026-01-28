@@ -23,4 +23,6 @@
 
     - name: Apply legacy-logger deployment
       ansible.builtin.command: kubectl -n prod apply -f "{{ playbook_dir }}/supporting/question-5/legacy-logger.yaml"
+      register: legacy_apply
+      changed_when: "'unchanged' not in legacy_apply.stdout"
       when: kubectl_check.rc == 0

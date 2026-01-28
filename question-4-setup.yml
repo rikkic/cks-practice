@@ -23,12 +23,22 @@
 
     - name: Apply payments deployment
       ansible.builtin.command: kubectl -n payments apply -f "{{ playbook_dir }}/supporting/question-4/payments-deploy.yaml"
+      register: payments_apply
+      changed_when: "'unchanged' not in payments_apply.stdout"
+      when: kubectl_check.rc == 0
+
+    - name: Read current PSS enforce label
+      ansible.builtin.command: kubectl get ns payments -o jsonpath='{.metadata.labels.pod-security\.kubernetes\.io/enforce}'
+      register: payments_pss_label
+      changed_when: false
       when: kubectl_check.rc == 0
 
     - name: Enforce restricted PSS in payments
       ansible.builtin.command: kubectl label ns payments pod-security.kubernetes.io/enforce=restricted --overwrite
-      when: kubectl_check.rc == 0
+      register: payments_label
+      changed_when: "'restricted' not in payments_pss_label.stdout"
+      when: kubectl_check.rc == 0 and payments_pss_label.stdout != 'restricted'
 
-    - name: Delete existing payments pods
+    - name: Delete existing payments pods after changes
       ansible.builtin.command: kubectl -n payments delete pod -l app=payments --ignore-not-found
-      when: kubectl_check.rc == 0
+      when: kubectl_check.rc == 0 and ((payments_apply is defined and payments_apply.changed) or (payments_label is defined and payments_label.changed))

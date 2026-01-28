@@ -12,4 +12,6 @@
 
     - name: Apply team-a namespace
       ansible.builtin.command: kubectl apply -f "{{ playbook_dir }}/supporting/question-10/team-a-namespace.yaml"
+      register: team_a_apply
+      changed_when: "'unchanged' not in team_a_apply.stdout"
       when: kubectl_check.rc == 0

@@ -23,4 +23,6 @@
 
     - name: Apply netpol-q8 workloads
       ansible.builtin.command: kubectl -n netpol-q8 apply -f "{{ playbook_dir }}/supporting/question-8/netpol-q8.yaml"
+      register: netpol_apply
+      changed_when: "'unchanged' not in netpol_apply.stdout"
       when: kubectl_check.rc == 0

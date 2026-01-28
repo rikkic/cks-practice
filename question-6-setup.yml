@@ -22,8 +22,16 @@
       when: kubectl_check.rc == 0 and secure_ns.rc != 0
 
     - name: Label secure namespace for binding
-      ansible.builtin.command: kubectl label ns secure cks-lab=question-6 --overwrite
+      ansible.builtin.command: kubectl get ns secure -o jsonpath='{.metadata.labels.cks-lab}'
+      register: secure_label
+      changed_when: false
       when: kubectl_check.rc == 0
+
+    - name: Apply secure namespace label for binding
+      ansible.builtin.command: kubectl label ns secure cks-lab=question-6 --overwrite
+      register: secure_label_apply
+      changed_when: "'question-6' not in secure_label.stdout"
+      when: kubectl_check.rc == 0 and secure_label.stdout != 'question-6'
 
     - name: Check cosign present
       ansible.builtin.command: which cosign

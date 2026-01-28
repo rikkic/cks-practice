@@ -48,15 +48,22 @@
         path: /var/lib/kubelet/kubeadm-flags.env
         regexp: '^KUBELET_KUBEADM_ARGS='
         line: "KUBELET_KUBEADM_ARGS=\"{{ kubelet_args_new | trim }}\""
+      register: kubeadm_flags_updated
       become: true
       when: kubeadm_flags.stat.exists
 
     - name: Loosen /etc/kubernetes permissions
-      ansible.builtin.command: chmod -R 777 /etc/kubernetes
+      ansible.builtin.file:
+        path: /etc/kubernetes
+        state: directory
+        mode: '0777'
+        recurse: true
       become: true
       when: kubeadm_flags.stat.exists
+      register: kube_perms_updated
 
-    - name: Restart kubelet
+    - name: Restart kubelet when flags change
       ansible.builtin.command: systemctl restart kubelet
       become: true
       failed_when: false
+      when: kubeadm_flags_updated is defined and kubeadm_flags_updated.changed

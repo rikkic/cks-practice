@@ -12,4 +12,6 @@
 
     - name: Apply namespace and service account
       ansible.builtin.command: kubectl apply -f "{{ playbook_dir }}/supporting/question-3/dev-namespace-sa.yaml"
+      register: dev_apply
+      changed_when: "'unchanged' not in dev_apply.stdout"
       when: kubectl_check.rc == 0

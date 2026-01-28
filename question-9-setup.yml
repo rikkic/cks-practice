@@ -23,6 +23,8 @@
 
     - name: Apply finance-q9 workloads
       ansible.builtin.command: kubectl -n finance-q9 apply -f "{{ playbook_dir }}/supporting/question-9/finance-q9.yaml"
+      register: finance_apply
+      changed_when: "'unchanged' not in finance_apply.stdout"
       when: kubectl_check.rc == 0
 
     - name: Append synthetic audit log entry
